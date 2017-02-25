@@ -9,8 +9,9 @@ import fview
 def main(target):
     """Console script for fview"""
 
-    res = fview.read(target)
-    click.echo(res)
+    parser = fview.read(target)
+
+    click.echo(parser.display_contents())
 
 
 if __name__ == "__main__":
