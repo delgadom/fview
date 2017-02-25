@@ -3,6 +3,7 @@
 import click
 import fview
 
+
 @click.command(name='fview')
 @click.argument('target')
 def main(target):

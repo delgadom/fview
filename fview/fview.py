@@ -22,6 +22,7 @@ class FileStack(object):
     def __getitem__(self, key):
         return self._stack[key]
 
+
 class FileManager(object):
     def __init__(self, lines):
         self._lines = tuple(lines)
@@ -102,7 +103,6 @@ class FortranParser(FortranSyntaxHandler):
 
 class CodeBlock(FortranParser):
 
-
     def __init__(self, manager):
         super(CodeBlock, self).__init__(manager)
         self.start = self.manager.line_cursor
@@ -111,7 +111,6 @@ class CodeBlock(FortranParser):
 
     def exit(self):
         raise NotImplementedError
-        
 
 
 class HeaderBlock(CodeBlock):
@@ -143,7 +142,6 @@ class CommentBlock(CodeBlock):
 
         self.end = self.manager.line_cursor
         self.manager.stack.decrement()
-
 
     def exit(self):
         nextline = self.manager.peek()
@@ -182,7 +180,6 @@ class Context(CodeBlock):
 
                 line = self.manager.peek()
 
-
             if self.is_subroutine_def(line):
                 subroutine = Subroutine(self.manager, header=comment)
                 self.contents.append(subroutine)
@@ -209,16 +206,21 @@ class Context(CodeBlock):
             re.I)
 
         if not defn_parser:
-            raise ValueError('Failed to match line {}: "{}"'.format(self.manager.line_cursor, line))
+            raise ValueError('Failed to match line {}: "{}"'.format(
+                self.manager.line_cursor,
+                line))
 
         self.context_name = defn_parser.group('name')
-        
+
         self.manager.step()
 
         self.handle()
 
     def exit(self):
-        return self.is_exit_context(self.manager.peek(), self.CodeType, self.context_name)
+        return self.is_exit_context(
+            self.manager.peek(),
+            self.CodeType,
+            self.context_name)
 
     def __repr__(self):
         return '<{}:{}>'.format(self.CodeType, self.context_name)
@@ -247,12 +249,12 @@ class File(Context):
         self.end = len(self.manager)
 
     def parse(self):
-        
+
         topline = self.manager.peek()
         if self.is_comment(topline) or self.is_whitespace(topline):
             self.header = HeaderBlock(self.manager)
             self.header.parse()
-        
+
         self.handle()
 
     def exit(self):
@@ -262,13 +264,13 @@ class File(Context):
 def read(target):
     with open(target, 'r') as f:
         manager = FileManager(f.readlines())
-    
+
     parser = File(manager, os.path.basename(target))
     parser.parse()
-    
+
     print(parser.display())
 
     for sub in parser.contents:
         print(sub.display())
-    
+
     return parser.manager.stack[8867]

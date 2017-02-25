@@ -21,7 +21,9 @@ test_requirements = [
 setup(
     name='fview',
     version='0.1.0',
-    description="FView provides tools for exploring and understanding fortran control flow, scope, and module includes",
+    description=(
+        "FView provides tools for exploring and understanding fortran " +
+        "control flow, scope, and module includes"),
     long_description=readme + '\n\n' + history,
     author="Michael Delgado",
     author_email='delgado.michaelt@gmail.com',
