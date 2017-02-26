@@ -60,7 +60,7 @@ class FileManager(object):
     def peek(self):
         try:
             return self._lines[self.line_cursor]
-        except IndexError as e:
+        except IndexError:
             raise IndexError(
                 'Error reading line {} of file {}:\n'.format(
                     self.line_cursor, self.filepath, traceback.format_exc()))
@@ -111,9 +111,9 @@ class ProgramManager(object):
 
         include = FortranFile(
             program_manager=self,
-            basedir = self.basedir,
+            basedir=self.basedir,
             filepath=filepath,
-            include_paths = self.include_paths)
+            include_paths=self.include_paths)
 
         include.read()
         include.parse()
