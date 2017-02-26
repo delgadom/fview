@@ -91,6 +91,9 @@ class ProgramManager(object):
 
     def parse(self):
         for root in self.root_files:
+            if root in self.files:
+                continue
+
             parser = FortranFile(
                 self,
                 self.basedir,
@@ -106,9 +109,11 @@ class ProgramManager(object):
         if filepath in self.files:
             return self.files[filepath]
 
-        include = Include(
+        include = FortranFile(
             program_manager=self,
-            filepath=filepath)
+            basedir = self.basedir,
+            filepath=filepath,
+            include_paths = self.include_paths)
 
         include.read()
         include.parse()
@@ -268,29 +273,37 @@ class Context(CodeBlock):
                 break
 
             if self.is_include(line):
-                filepath = re.match(
-                    (r'\s*include\s+(?P<q>[\'\"])?(?P<fp>[\w\.\-]+)(?P=q)\s*(\![^\n]*)?(\n)?$'),
+                filepath = re.match((
+                    r'\s*include\s+(?P<q>[\'\"])?(?P<fp>[\w\.\-]+)' +
+                    r'(?P=q)\s*(\![^\n]*)?(\n)?$'),
                     line,
                     re.I)
 
                 if not filepath:
-                    raise ValueError(
-                        'Error in file "{}" line {}: Include statement "{}" not understood'.format(
-                            self.file_manager.filepath,
-                            self.file_manager.line_cursor,
-                            line))
+                    raise ValueError((
+                        'Error in file "{}" line {}: ' +
+                        'Include statement "{}" not understood').format(
+                        self.file_manager.filepath,
+                        self.file_manager.line_cursor,
+                        line))
 
                 filepath = filepath.group('fp')
 
                 try:
-                    include = self.file_manager.program_manager.include(filepath)
+                    include = self.file_manager.program_manager.include(
+                        filepath)
 
                 except OSError:
-                    raise OSError(
-                        'Error in file "{}" line {}: Include file "{}" not found in include_paths path'.format(
+                    raise OSError((
+                        'Error in file "{}" line {}: Include file "{}" ' +
+                        'not found in include_paths path').format(
                             self.file_manager.filepath,
                             self.file_manager.line_cursor,
                             filepath))
+
+                include.calls.append((
+                    self.file_manager.filepath,
+                    self.file_manager.line_cursor))
 
                 self.contents[include.context_name] = include
                 self.file_manager.stack.increment(include)
@@ -390,7 +403,9 @@ class FileContext(Context):
     CodeType = 'FortranFile'
 
     def __init__(self, file_manager, context_name='<file>'):
-        super(FileContext, self).__init__(file_manager, context_name=context_name)
+        super(FileContext, self).__init__(
+            file_manager, context_name=context_name)
+
         self.end = len(self.file_manager)
 
     def parse(self):
@@ -416,9 +431,20 @@ class FortranFile(object):
         self.file_manager = None
         self.context = None
 
+        self.calls = []
+
     def _get_lines(self):
-        with open(os.path.join(self.basedir, self.filepath), 'r') as f:
-            return tuple(f.readlines())
+        for inc in ['.'] + self.include_paths:
+            fp = os.path.join(self.basedir, inc, self.filepath)
+            if os.path.exists(fp):
+                with open(fp, 'r') as f:
+                    return tuple(f.readlines())
+
+            if os.path.exists(os.path.splitext(fp)[0]):
+                with open(os.path.splitext(fp)[0], 'r') as f:
+                    return tuple(f.readlines())
+
+        raise OSError
 
     @property
     def contents(self):
@@ -452,30 +478,6 @@ class FortranFile(object):
 
     def display(self):
         return self.context.display_contents()
-
-
-class Include(FortranFile):
-    def __init__(self, program_manager, filepath):
-        basedir = program_manager.basedir
-        include_paths = program_manager.include_paths
-        
-        super(Include, self).__init__(
-            program_manager, basedir, filepath, include_paths)
-
-
-    def _get_lines(self):
-        for inc in ['.'] + self.include_paths:
-            fp = os.path.join(self.basedir, inc, self.filepath)
-            if os.path.exists(fp):
-                with open(fp, 'r') as f:
-                    return tuple(f.readlines())
-
-            if os.path.exists(os.path.splitext(fp)[0]):
-                with open(os.path.splitext(fp)[0], 'r') as f:
-                    return tuple(f.readlines())
-
-        raise OSError
-
 
 
 def read(basedir, include_paths, root_files):
