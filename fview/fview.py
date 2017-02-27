@@ -183,8 +183,14 @@ class FortranSyntaxHandler(object):
 
     @classmethod
     def is_variable_def(cls, line):
-        return re.match(
-            r'\s*({types})(\*[0-9]+)?(\((len=)?[0-9]+\))?(, (DIMENSION|PARAMETER|ALLOCATABLE))?(\s+|\s*::\s*)(?P<paren>\()?\s*(?P<declarations>(\s*(\,)?\s*{name}\s*(?P<dims>\(\s*({name}(\s*\:\s*{name})*)(\s*,\s*{name}(\s*\:\s*{name})*)*\s*\))?)+)\s*(?(paren)\))'.format(types=cls.TYPE_REGEX, name=cls.NAME_REGEX), line, re.I)
+        return re.match((
+            r'\s*({types})(\*[0-9]+)?(\((len=)?[0-9]+\))?' +
+            r'(, (DIMENSION|PARAMETER|ALLOCATABLE))?(\s+|\s*::\s*)' +
+            r'(?P<paren>\()?\s*(?P<declarations>(\s*(\,)?\s*{name}\s*' +
+            r'(?P<dims>\(\s*({name}(\s*\:\s*{name})*)' +
+            r'(\s*,\s*{name}(\s*\:\s*{name})*)*\s*\))?)+)\s*(?(paren)\))'
+            ).format(
+            types=cls.TYPE_REGEX, name=cls.NAME_REGEX), line, re.I)
 
     @staticmethod
     def has_continuation_chr(line):
@@ -194,7 +200,7 @@ class FortranSyntaxHandler(object):
     @staticmethod
     def is_use_line(line):
         return len(line) > 0 and line.lstrip().upper()[:4] == 'USE '
-    
+
     @classmethod
     def join_continue(cls, line, nextline):
         r'''
@@ -202,7 +208,7 @@ class FortranSyntaxHandler(object):
         Examples
         --------
 
-        :py:meth:`~FortranSyntaxHandler.join_continue` joins multi-line 
+        :py:meth:`~FortranSyntaxHandler.join_continue` joins multi-line
         statements one line at a time:
 
         .. code-block:: python
@@ -221,7 +227,7 @@ class FortranSyntaxHandler(object):
             ...     '  ! This function takes the following arguments:')
             'REAL FUNCTION ARGMAX&'
 
-        join_continue is intended to be used in conjunction with 
+        join_continue is intended to be used in conjunction with
         :py:meth:`~FortranSyntaxHandler.has_continuation_chr` and
         :py:meth:`~FortranSyntaxHandler.is_comment`. For example:
 
@@ -243,7 +249,7 @@ class FortranSyntaxHandler(object):
             >>> line = lines[line_no]
             >>> while True:
             ...     if ((FortranSyntaxHandler.has_continuation_chr(line)
-            ...             or FortranSyntaxHandler.is_comment(line)) 
+            ...             or FortranSyntaxHandler.is_comment(line))
             ...             and line_no + 1 < len(lines)):
             ...         line_no += 1
             ...         next = lines[line_no]
@@ -270,7 +276,7 @@ class FortranSyntaxHandler(object):
 
         line1 = re.search(
             r'^(?P<pre>\s*[^\&\!\n]*)(?P<cont>(\&)?)(\s*(\![^\n]*)?(\n)?)$',
-                line)
+            line)
 
         if cls.is_comment(nextline):
             return line1.group('pre') + line1.group('cont')
@@ -317,7 +323,7 @@ class Variable(FortranParser):
             definition,
             definition_file,
             definition_line):
-        
+
         super(Variable, self).__init__(file_manager)
         self.variable_name = variable_name
         self.dims = dims
@@ -329,15 +335,25 @@ class Variable(FortranParser):
     @classmethod
     def parse_declartion_statement(cls, line, file_manager, full_statement):
         variables = []
-        
-        parsed = re.match(
-                r'\s*(?P<typedef>{types})(\*[0-9]+)?(\((len=)?[0-9]+\))?(, (DIMENSION|PARAMETER|ALLOCATABLE))?(\s+|\s*::\s*)(?P<paren>\()?\s*(?P<declarations>(\s*(\,)?\s*{name}\s*(?P<dims>\(\s*({name}(\s*\:\s*{name})*)(\s*,\s*{name}(\s*\:\s*{name})*)*\s*\))?)+)\s*(?(paren)\))'.format(types=cls.TYPE_REGEX, name=cls.NAME_REGEX), line, re.I)
-        
+
+        parsed = re.match((
+            r'\s*(?P<typedef>{types})(\*[0-9]+)?(\((len=)?[0-9]+\))?' +
+            r'(, (DIMENSION|PARAMETER|ALLOCATABLE))?(\s+|\s*::\s*)' +
+            r'(?P<paren>\()?\s*(?P<declarations>(\s*(\,)?\s*{name}\s*' +
+            r'(?P<dims>\(\s*({name}(\s*\:\s*{name})*)(\s*,\s*{name}' +
+            r'(\s*\:\s*{name})*)*\s*\))?)+)\s*(?(paren)\))').format(
+            types=cls.TYPE_REGEX, name=cls.NAME_REGEX), line, re.I)
+
         typedef = parsed.group('typedef')
         line_number = file_manager.line_cursor
 
-        for parser in re.finditer(r'(?P<declaration>((?P<name>{name})\s*(?P<dims>\(\s*({name}(\s*\:\s*{name})*)(\s*,\s*{name}(\s*\:\s*{name})*)*\s*\))?))'.format(types=cls.TYPE_REGEX, name=cls.NAME_REGEX), parsed.group('declarations'), re.I):
-            declaration = parser.group('declaration').strip()
+        for parser in re.finditer((
+                r'(?P<declaration>((?P<name>{name})\s*' +
+                r'(?P<dims>\(\s*({name}(\s*\:\s*{name})*)' +
+                r'(\s*,\s*{name}(\s*\:\s*{name})*)*\s*\))?))').format(
+                types=cls.TYPE_REGEX, name=cls.NAME_REGEX),
+                parsed.group('declarations'), re.I):
+
             name = parser.group('name')
             dims = parser.group('dims')
 
@@ -433,7 +449,7 @@ class Context(CodeBlock):
                 self.file_manager.step()
                 continue
 
-            # Handle comments as unique statement types - we assign these as 
+            # Handle comments as unique statement types - we assign these as
             # context headers if they preceede a context block
             if self.is_comment(line):
                 comment = CommentBlock(self.file_manager)
@@ -445,12 +461,13 @@ class Context(CodeBlock):
                     break
 
             # Handle continuation characters ('&' at end of statement)
-            # Since we've already parsed comments, if we encounter a 
+            # Since we've already parsed comments, if we encounter a
             # comment in this block it must be part of a multi-line statement.
             full_statement = line
-            while (self.file_manager.has_next() and
-                    (self.has_continuation_chr(self.file_manager.peek()) or 
-                    self.is_comment(self.file_manager.peek()))):
+            while (
+                    self.file_manager.has_next() and (
+                        self.has_continuation_chr(self.file_manager.peek()) or
+                        self.is_comment(self.file_manager.peek()))):
 
                 self.file_manager.step()
                 line = self.join_continue(line, self.file_manager.peek())
@@ -483,7 +500,7 @@ class Context(CodeBlock):
 
                 filepath = filepath.group('fp')
 
-                # Catch & re-raise import errors here so we can report the 
+                # Catch & re-raise import errors here so we can report the
                 # troublesome file & line number of the include statement
                 try:
                     include = IncludeFile(
@@ -558,7 +575,7 @@ class Context(CodeBlock):
             else:
                 self.file_manager.step()
 
-        # On context exit, decrement the stack and assign the current line 
+        # On context exit, decrement the stack and assign the current line
         # number as the end-line of the current context
         self.file_manager.stack.decrement()
         self.end = self.file_manager.line_cursor
@@ -656,8 +673,6 @@ class Context(CodeBlock):
                     in_file = include.find_in_scope(name)
                     if in_file:
                         return in_file
-        
-
 
 
 class Subroutine(Context):
@@ -746,7 +761,6 @@ class FortranFile(object):
 
     def __getitem__(self, key):
         return self.context.contents[key]
-
 
     def __repr__(self):
         return '<FortranFile:{}>'.format(self.filepath)
